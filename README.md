@@ -4,23 +4,19 @@
   <img src="assets/ui_2.png" alt="FuelCast Web Application Interface">
 </p>
 
-FuelCast is an end-to-end computer vision application that detects floating-head oil storage tanks from high-resolution satellite imagery and estimates their fill volumes based on shadow analysis.
+Barrels.ai is an end-to-end computer vision application that detects floating-head oil storage tanks from high-resolution satellite imagery and estimates their fill volumes based on shadow analysis.
 
 This project was built to satisfy the growing demand for accurate, transparent measurements of global oil reserves, bypassing the often opaque data provided by institutions and governments. 
 
-**[🚀 View the Live Application](https://barrels-ai-frontend.onrender.com/)**
+**[View the Live Application](https://barrels-ai-frontend.onrender.com/)**
 
 ---
 
-## 🌟 The Application
+## The Application
 
 The application features a decoupled architecture designed for modern deployment:
 * **FastAPI Backend:** Hosts the YOLOv8 object detection model and the Numpy/Scikit-Image shadow extraction pipeline.
 * **Streamlit Frontend:** A modern, clean web interface for users to upload satellite images, tweak parameters, and view volume estimations in real-time.
-
-<p align="center">
-  <img src="assets/ui_1.png" alt="FuelCast Detection Results">
-</p>
 
 ### How to use:
 1. Upload a high-resolution satellite image of an oil refinery (e.g., from Google Earth).
@@ -48,12 +44,6 @@ The PR curve shows the tradeoff between precision and recall for different thres
   <img src="assets/pr_curve.png" alt="Precision-Recall Curve">
 </p>
 
-### Confusion Matrix
-The confusion matrix illustrates the model's high true positive rates and highlights where false positives/negatives occur across the three tank classes and background.
-<p align="center">
-  <img src="assets/confusion_matrix.png" alt="Confusion Matrix">
-</p>
-
 ### Training Results
 Comprehensive training graphs showing the reduction in loss and the steady increase in mAP (mean Average Precision) over the epochs.
 <p align="center">
@@ -62,7 +52,7 @@ Comprehensive training graphs showing the reduction in loss and the steady incre
 
 ---
 
-## 🧠 How it Works
+## How it Works
 
 The pipeline is divided into three distinct stages:
 
@@ -82,7 +72,7 @@ The larger area corresponds to the exterior shadow of the tank, while the smalle
 
 ---
 
-## 🌍 The Importance of Oil Estimation
+## The Importance of Oil Estimation
 
 Oil powers the global economy. Because commodities must be transported, and most transportation relies on oil, every commodity price is ultimately dependent on oil availability. 
 

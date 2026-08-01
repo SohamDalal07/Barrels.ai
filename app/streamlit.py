@@ -533,7 +533,7 @@ st.sidebar.markdown(
     "Detect floating-head oil tanks from satellite imagery and estimate fill volumes."
 )
 st.sidebar.image(
-    r"D:\oil estimator\assets\tank.jpg",
+    "assets/tank.jpg",
     use_container_width=True,
 )
 st.sidebar.markdown("---")

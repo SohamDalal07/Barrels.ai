@@ -1,4 +1,4 @@
-# 🛢️ FuelCast: Oil Tank Volume Estimator
+# Barrels.ai: Oil Tank Volume Estimator
 
 <p align="center">
   <img src="assets/ui_2.png" alt="FuelCast Web Application Interface">

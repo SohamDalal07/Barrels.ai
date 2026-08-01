@@ -10,7 +10,7 @@ attrs==21.4.0
 backcall==0.2.0
 backports.zoneinfo==0.2.1
 beautifulsoup4==4.11.1
-bleach==5.0.0
+bleach>=5.0.1
 blinker==1.4
 blis==0.7.8
 boto3==1.19.8

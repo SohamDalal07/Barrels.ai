@@ -9,3 +9,4 @@ requests
 requests-toolbelt
 pandas
 Pillow
+scikit-image

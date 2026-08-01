@@ -1,0 +1,21 @@
+# Environments
+.venv/
+.venv-1/
+.env
+__pycache__/
+*.pyc
+
+# Data & Large Files
+data/
+yolo_dataset/
+yolo_dataset_3class/
+runs/
+kaggle.json
+*.pdf
+yolov8n.pt
+yolo26n.pt
+
+# Miscellaneous
+test_chart.json
+dedent.py
+.DS_Store

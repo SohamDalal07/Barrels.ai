@@ -8,7 +8,7 @@ FuelCast is an end-to-end computer vision application that detects floating-head
 
 This project was built to satisfy the growing demand for accurate, transparent measurements of global oil reserves, bypassing the often opaque data provided by institutions and governments. 
 
-**[View the Thesis Repository](https://rb.gy/z4oh54)**
+**[🚀 View the Live Application](https://barrels-ai-frontend.onrender.com/)**
 
 ---
 
@@ -27,6 +27,38 @@ The application features a decoupled architecture designed for modern deployment
 2. Define the average **diameter** and **height** of the tanks in the area.
 3. FuelCast will automatically detect all floating-head tanks and extract their crescent shadows.
 4. The system calculates the estimated volume (in barrels) by multiplying the physical dimensions by the fill percentage returned by the shadow extraction algorithm.
+
+---
+
+## 📊 Model Training & Analysis
+
+The object detection model is powered by **YOLOv8**, trained specifically to detect floating-head tanks, fixed-roof tanks, and tank clusters. By differentiating these classes, we ensure volume is only estimated on the appropriate floating-head structures.
+
+Below are the key analysis results from the model training process:
+
+### Validation Predictions
+A sample of predictions on the validation set, demonstrating the model's accuracy in drawing bounding boxes and assigning correct class labels.
+<p align="center">
+  <img src="assets/val_predictions.jpg" alt="Validation Predictions">
+</p>
+
+### Precision-Recall (PR) Curve
+The PR curve shows the tradeoff between precision and recall for different threshold settings, indicating strong performance across all classes.
+<p align="center">
+  <img src="assets/pr_curve.png" alt="Precision-Recall Curve">
+</p>
+
+### Confusion Matrix
+The confusion matrix illustrates the model's high true positive rates and highlights where false positives/negatives occur across the three tank classes and background.
+<p align="center">
+  <img src="assets/confusion_matrix.png" alt="Confusion Matrix">
+</p>
+
+### Training Results
+Comprehensive training graphs showing the reduction in loss and the steady increase in mAP (mean Average Precision) over the epochs.
+<p align="center">
+  <img src="assets/results.png" alt="Training Results">
+</p>
 
 ---
 

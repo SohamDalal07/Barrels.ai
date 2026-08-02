@@ -5,7 +5,7 @@ COPY ./app /app
 COPY ./requirements.txt /requirements.txt
 COPY .env .env
 # Copy the AI models
-COPY ./*.pt /
+COPY ./*.onnx /
 
 # Install system dependencies needed for OpenCV and Scikit-Image
 RUN apt-get update && apt-get install -y \
@@ -19,8 +19,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Hugging Face Spaces Docker requirement: expose port 7860
-EXPOSE 7860
+EXPOSE 8000
 
-# Run FastAPI backend on port 7860
-CMD ["uvicorn", "app.main:app", "--host=0.0.0.0", "--port=7860"]
+# Run FastAPI backend on port 8000
+CMD ["uvicorn", "app.main:app", "--host=0.0.0.0", "--port=8000"]

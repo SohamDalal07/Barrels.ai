@@ -1,19 +1,14 @@
 """
-Oil tank detection using YOLOv8 (Ultralytics) + shadow-based volume estimation.
-
-Replaces the old TensorFlow/Keras YOLOv3 pipeline with our locally-trained
-YOLOv8n model for floating-head tank detection.
+Oil tank detection using YOLOv8 ONNX format + shadow-based volume estimation.
 """
-
 import base64
 import pathlib
 import warnings
-
-warnings.filterwarnings("ignore")
-
 import cv2
 import numpy as np
-from ultralytics import YOLO
+import onnxruntime as ort
+
+warnings.filterwarnings("ignore")
 
 from app.shadows_estimator import MultiTank
 
@@ -21,7 +16,7 @@ from app.shadows_estimator import MultiTank
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
-WEIGHTS_PATH = PROJECT_ROOT / "best_oil_tanks_3class.pt"
+WEIGHTS_PATH = PROJECT_ROOT / "best_oil_tanks_3class.onnx"
 
 CLASS_NAMES = {
     0: "Floating Head Tank",
@@ -41,92 +36,104 @@ CLASS_SHORT = {
     2: "TC",
 }
 
-
 # ──────────────────────────── Model Loading ────────────────────────────
 
 def load_model(weights_path=None):
-    """Load the trained YOLOv8 model."""
+    """Load the YOLOv8 ONNX model using onnxruntime."""
     path = weights_path or WEIGHTS_PATH
     if not path.exists():
-        raise FileNotFoundError(
-            f"Model weights not found at {path}. "
-            f"Run train_local.py first to train the model."
-        )
-    model = YOLO(str(path))
-    print(f"YOLOv8 model loaded from {path}")
-    return model
-
+        raise FileNotFoundError(f"Model weights not found at {path}.")
+    
+    session = ort.InferenceSession(str(path), providers=['CPUExecutionProvider'])
+    print(f"YOLOv8 ONNX model loaded from {path}")
+    return session
 
 # ──────────────────────────── Detection ────────────────────────────────
 
-def detect(model, image_array, conf=0.25):
-    """
-    Run YOLOv8 detection on an image.
-
-    Args:
-        model: Ultralytics YOLO model
-        image_array: numpy array (H, W, 3) in RGB, uint8
-        conf: confidence threshold
-
-    Returns:
-        List of dicts with keys: bbox (xyxy), confidence, class_name
-    """
-    results = model.predict(image_array, conf=conf, verbose=False)[0]
-
+def detect(session, image_array, conf=0.25):
+    """Run ONNX detection."""
+    img_h, img_w = image_array.shape[:2]
+    
+    # Preprocess: YOLOv8 expects 512x512, RGB, /255.0, BCHW
+    resized = cv2.resize(image_array, (512, 512))
+    input_tensor = resized.astype(np.float32) / 255.0
+    input_tensor = np.transpose(input_tensor, (2, 0, 1))
+    input_tensor = np.expand_dims(input_tensor, axis=0)
+    
+    input_name = session.get_inputs()[0].name
+    outputs = session.run(None, {input_name: input_tensor})[0]
+    
+    # outputs shape: (1, 7, 5376) -> transpose to (5376, 7)
+    preds = outputs[0].T
+    
+    boxes = []
+    scores = []
+    class_ids = []
+    
+    x_factor = img_w / 512.0
+    y_factor = img_h / 512.0
+    
+    for row in preds:
+        classes_scores = row[4:]
+        max_score = np.amax(classes_scores)
+        if max_score >= conf:
+            class_id = np.argmax(classes_scores)
+            
+            x, y, w, h = row[0], row[1], row[2], row[3]
+            
+            left = int((x - w / 2) * x_factor)
+            top = int((y - h / 2) * y_factor)
+            width = int(w * x_factor)
+            height = int(h * y_factor)
+            
+            boxes.append([left, top, width, height])
+            scores.append(float(max_score))
+            class_ids.append(int(class_id))
+            
+    # NMS
+    indices = cv2.dnn.NMSBoxes(boxes, scores, conf, 0.45)
+    
     detections = []
-    for box in results.boxes:
-        x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-        cls_id = int(box.cls[0])
-        detections.append({
-            "bbox_xyxy": [float(x1), float(y1), float(x2), float(y2)],
-            "confidence": float(box.conf[0]),
-            "class_id": cls_id,
-            "class_name": CLASS_NAMES.get(cls_id, f"class_{cls_id}"),
-        })
-
+    if len(indices) > 0:
+        for i in indices.flatten():
+            box = boxes[i]
+            x1, y1 = box[0], box[1]
+            x2, y2 = box[0] + box[2], box[1] + box[3]
+            cls_id = class_ids[i]
+            
+            detections.append({
+                "bbox_xyxy": [float(x1), float(y1), float(x2), float(y2)],
+                "confidence": scores[i],
+                "class_id": cls_id,
+                "class_name": CLASS_NAMES.get(cls_id, f"class_{cls_id}"),
+            })
+            
     return detections
-
 
 # ──────────────────────────── Volume Estimation ────────────────────────
 
 def estimate_volumes(image_array, detections):
-    """
-    Run shadow extraction on detected tanks to estimate fill volumes.
-
-    Args:
-        image_array: numpy array (H, W, 3) in RGB, uint8
-        detections: list of detection dicts from detect()
-
-    Returns:
-        List of volume estimates (float, 0-1) matching detections order
-    """
     h, w = image_array.shape[:2]
 
-    # Only run shadow extraction on Floating Head Tanks (class_id == 0)
     fht_indices = [i for i, d in enumerate(detections) if d["class_id"] == 0]
     fht_bboxes = []
     for i in fht_indices:
         x1, y1, x2, y2 = detections[i]["bbox_xyxy"]
         fht_bboxes.append([
-            int(round(y1)),
-            int(round(x1)),
-            int(round(y2)),
-            int(round(x2)),
+            int(round(y1)), int(round(x1)),
+            int(round(y2)), int(round(x2)),
         ])
 
-    # Shadow estimator expects float [0, 1] image
     image_float = image_array.astype(np.float32) / 255.0
-
     multi_tank = MultiTank(fht_bboxes, image_float)
     fht_volumes = multi_tank.get_volumes()
 
-    # Map volumes back: FHTs get shadow volume, others get -1 (not applicable)
     from app.shadows_estimator import check_bb
     volumes = []
     fht_vol_idx = 0
     for i, det in enumerate(detections):
         if det["class_id"] != 0:
-            volumes.append(-1.0)  # Not a FHT, no volume estimate
+            volumes.append(-1.0)
         else:
             x1, y1, x2, y2 = det["bbox_xyxy"]
             bb = [int(round(y1)), int(round(x1)), int(round(y2)), int(round(x2))]
@@ -135,24 +142,11 @@ def estimate_volumes(image_array, detections):
                 fht_vol_idx += 1
             else:
                 volumes.append(0.0)
-
     return volumes
-
 
 # ──────────────────────────── Drawing ──────────────────────────────────
 
 def draw_outputs(image_array, detections, volumes):
-    """
-    Draw bounding boxes with confidence and volume labels.
-
-    Args:
-        image_array: numpy array (H, W, 3) in RGB, uint8
-        detections: list of detection dicts
-        volumes: list of volume estimates
-
-    Returns:
-        Annotated image as numpy array (BGR for OpenCV compatibility)
-    """
     img = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
 
     for det, vol in zip(detections, volumes):
@@ -164,7 +158,7 @@ def draw_outputs(image_array, detections, volumes):
 
         img = cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
-        if cls_id == 0 and vol >= 0:  # FHT with volume
+        if cls_id == 0 and vol >= 0:
             label = f"{short_name} {conf:.2f} V:{vol:.2f}"
         else:
             label = f"{short_name} {conf:.2f}"
@@ -175,34 +169,14 @@ def draw_outputs(image_array, detections, volumes):
             img, label, (x1, y1 - 4),
             cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1,
         )
-
     return img
-
 
 # ──────────────────────────── Full Pipeline ────────────────────────────
 
 def make_prediction(model, image_array, file_suffix=".jpg", conf=0.25):
-    """
-    Full pipeline: detect → estimate volumes → draw → encode.
-
-    Args:
-        model: Ultralytics YOLO model
-        image_array: numpy array (H, W, 3) in RGB, uint8
-        file_suffix: image format for encoding (e.g. '.jpg', '.png')
-        conf: confidence threshold for detection
-
-    Returns:
-        dict with keys:
-            - data: list of detection results with volumes
-            - encoded_img: base64-encoded annotated image
-    """
-    # 1. Detect tanks
     detections = detect(model, image_array, conf=conf)
-
-    # 2. Estimate volumes via shadow extraction
     volumes = estimate_volumes(image_array, detections)
 
-    # 3. Build result data — group by class for the API response
     fht_results = []
     all_results = []
     for det, vol in zip(detections, volumes):
@@ -218,15 +192,12 @@ def make_prediction(model, image_array, file_suffix=".jpg", conf=0.25):
         if det["class_id"] == 0 and vol >= 0:
             fht_results.append(entry)
 
-    # 4. Draw annotated image
     annotated_bgr = draw_outputs(image_array, detections, volumes)
-
-    # 5. Encode to base64
     retval, buffer = cv2.imencode(file_suffix, annotated_bgr)
     encoded_img = base64.b64encode(buffer).decode("utf-8")
 
     return {
-        "data": [fht_results],       # FHT-only results for volume/barrel calc
-        "all_detections": all_results, # all 3-class detections for display
+        "data": [fht_results],
+        "all_detections": all_results,
         "encoded_img": encoded_img,
     }

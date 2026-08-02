@@ -1,15 +1,10 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.3.0+cpu
-torchvision
-ultralytics
 fastapi
 uvicorn
 python-multipart
 opencv-python-headless
 numpy
 streamlit
-requests
-requests-toolbelt
 pandas
 Pillow
 scikit-image
+onnxruntime

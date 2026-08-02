@@ -1,12 +1,11 @@
 """
-Oil tank detection using YOLOv8 ONNX format + shadow-based volume estimation.
+Oil tank detection using YOLOv8 ONNX format (via OpenCV DNN) + shadow-based volume estimation.
 """
 import base64
 import pathlib
 import warnings
 import cv2
 import numpy as np
-import onnxruntime as ort
 
 warnings.filterwarnings("ignore")
 
@@ -39,29 +38,26 @@ CLASS_SHORT = {
 # ──────────────────────────── Model Loading ────────────────────────────
 
 def load_model(weights_path=None):
-    """Load the YOLOv8 ONNX model using onnxruntime."""
+    """Load the YOLOv8 ONNX model using OpenCV DNN."""
     path = weights_path or WEIGHTS_PATH
     if not path.exists():
         raise FileNotFoundError(f"Model weights not found at {path}.")
     
-    session = ort.InferenceSession(str(path), providers=['CPUExecutionProvider'])
-    print(f"YOLOv8 ONNX model loaded from {path}")
-    return session
+    net = cv2.dnn.readNetFromONNX(str(path))
+    print(f"YOLOv8 ONNX model loaded via OpenCV from {path}")
+    return net
 
 # ──────────────────────────── Detection ────────────────────────────────
 
-def detect(session, image_array, conf=0.25):
-    """Run ONNX detection."""
+def detect(net, image_array, conf=0.25):
+    """Run ONNX detection using OpenCV DNN."""
     img_h, img_w = image_array.shape[:2]
     
     # Preprocess: YOLOv8 expects 512x512, RGB, /255.0, BCHW
-    resized = cv2.resize(image_array, (512, 512))
-    input_tensor = resized.astype(np.float32) / 255.0
-    input_tensor = np.transpose(input_tensor, (2, 0, 1))
-    input_tensor = np.expand_dims(input_tensor, axis=0)
-    
-    input_name = session.get_inputs()[0].name
-    outputs = session.run(None, {input_name: input_tensor})[0]
+    # OpenCV's blobFromImage handles resizing, scaling, and BCHW transposition
+    blob = cv2.dnn.blobFromImage(image_array, 1/255.0, (512, 512), swapRB=False, crop=False)
+    net.setInput(blob)
+    outputs = net.forward()
     
     # outputs shape: (1, 7, 5376) -> transpose to (5376, 7)
     preds = outputs[0].T

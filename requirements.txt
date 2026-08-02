@@ -7,6 +7,5 @@ streamlit
 pandas
 Pillow
 scikit-image
-onnxruntime
 requests
 requests-toolbelt
